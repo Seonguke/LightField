@@ -10,7 +10,7 @@
 #include <qmainwindow.h>
 #include <qboxlayout.h>
 #include <qwidget.h>
-
+#include <QPushButton>
 #include "imageinfo.h"
 #include "light_field_widget.h"
 
@@ -23,16 +23,18 @@ public:
 
 private slots:
     void OnLoadButtonClicked();
+    void OnsaveButtonClicked();
     void OnFocusSliderValueChanged(int value);
     void OnApertureSliderValueChanged(int value);
     void OnFrameSwapped();
+
 
 private:
     // UI
     class Ui;
     Ui *ui;
     LightFieldWidget *viewer;
-
+    LightFieldWidget *viewer2;
     QWidget *mainWidget;
     QHBoxLayout *mainLayout;
 

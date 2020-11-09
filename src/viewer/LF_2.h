@@ -1,10 +1,8 @@
 #ifdef _MSC_VER
 #pragma once
 #endif
-
-#ifndef LIGHT_FIELD_WIDGET_H
-#define LIGHT_FIELD_WIDGET_H
-
+#ifndef LF_2_H
+#define LF_2_H
 #include <string>
 #include <vector>
 #include <memory>
@@ -30,12 +28,12 @@ using namespace std;
 #define l_v 9
 #define l_w 512
 #define l_h 512
-class LightFieldWidget : public QOpenGLWidget, private QOpenGLFunctions {
+class LightFieldWidget2 : public QOpenGLWidget, private QOpenGLFunctions {
     Q_OBJECT
 
 public:
-    explicit LightFieldWidget(QWidget* parent = nullptr);
-    virtual ~LightFieldWidget();
+    explicit LightFieldWidget2(QWidget* parent = nullptr);
+    virtual ~LightFieldWidget2();
 
     void setLightField(const std::vector<ImageInfo>& viewInfos, int rows, int cols);
     void setLabel(const std::vector<ImageInfo>& viewInfos, int rows, int cols);
@@ -46,8 +44,7 @@ public:
     void test();
     void save_image();
     void save_label();
-
-
+     void setLabel2(const std::vector<ImageInfo>& viewInfos, int rows, int cols);
     //int label[l_u][l_v][l_w][l_h];
     //map<string,int> label_map;
     //string label_key[label_idx];
@@ -82,8 +79,9 @@ private:
     int lfRows, lfCols;
     QSize imageSize;
     QPoint prevMouseClick;
-    
+
     bool isClick;
 };
 
-#endif  // LIGHT_FIELD_WIDGET_H
+#endif // LF_2_H
+

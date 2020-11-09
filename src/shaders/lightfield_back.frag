@@ -30,6 +30,7 @@ void main(void) {
     float focusPointRatio = 1.0 + focusPoint / focusRatio;
 
     vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
+    vec3 po = vec3(0.0, 0.0, 0.0);
     int validPixelCount = 0;
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -49,13 +50,22 @@ void main(void) {
                     V.x = px;
                     V.y = py;
                     V.z = float(i * cols + j + 0.5) / float(rows * cols);
+                    po.x = po.x + V.x;
+                    po.y = po.y + V.y;
+                    po.z = po.z + V.z;
 		    //color =  texture(textureImages, V);
-                    color = color + texture(textureImages, V);
+                    //color = color + texture(textureImages, V);
                     validPixelCount++;
                 }
             }
         }
     }
     //out_color = color ;
-    out_color = color / validPixelCount;
+    vec3 fin= vec3(0.0,0.0,0.0);
+    fin.x=po.x/validPixelCount;
+    fin.y=po.y/validPixelCount;
+    fin.z=po.z/validPixelCount;
+    color=color+texture(textureImages,fin);
+    out_color = color ;
+    //out_color = color / validPixelCount;
 }

@@ -49,13 +49,13 @@ void main(void) {
                     V.x = px;
                     V.y = py;
                     V.z = float(i * cols + j + 0.5) / float(rows * cols);
-		    //color =  texture(textureImages, V);
-                    color = color + texture(textureImages, V);
-                    validPixelCount++;
+		    color =  texture(textureImages, V);
+                    //color = color + texture(textureImages, V);
+                    //validPixelCount++;
                 }
             }
         }
     }
-    //out_color = color ;
-    out_color = color / validPixelCount;
+    out_color = color ;
+    //out_color = color / validPixelCount;
 }

@@ -1,4 +1,4 @@
-#include "light_field_widget.h"
+#include "LF_2.h"
 
 #include <iostream>
 #include <fstream>
@@ -8,30 +8,48 @@
 #include <dirent.h>
 #include <QtGui/qmatrix4x4.h>
 #include <QtGui/qvector3d.h>
-#include <stdio.h>
-#include "directories.h"
+
+
 
 using namespace std;
 static constexpr uint32_t indexBufferSize = 6;
 #define label_idx 2000
-map<string,int> label_map_s;
-int max_label=0;
-int label[l_u][l_v][l_w][l_h]={0,};
-map<int,int> label_map;
-map<string,int>::iterator p;
+
+int label[l_u][l_v][l_w][l_h];
+map<string,int> label_map;
 string label_key[label_idx];
-int ll[l_h*l_w]={0,};
 struct Vertex {
     QVector3D position;
     QVector2D texcoord;
 };
-struct col_list{
-    int r=0;
-    int g=0;
-    int b=0;
-    int v=0;
-};
-col_list col_val[2000];
+
+LightFieldWidget2::LightFieldWidget2(QWidget* parent)
+    : QOpenGLWidget(parent)
+    , focus(0.0f)
+    , aperture(5.0f)
+    , lfRows(0)
+    , lfCols(0)
+    , imageSize(1, 1)
+    , cameraPosition(0.5f, 0.5f)
+    , isClick(false) {
+    // Setup timer
+    timer = std::make_unique<QTimer>(this);
+    timer->start(10);
+    connect(timer.get(), SIGNAL(timeout()), this, SLOT(animate()));
+}
+
+LightFieldWidget2::~LightFieldWidget2() {
+}
+
+QSize LightFieldWidget2::sizeHint() const {
+    //const int h = 512;
+    //const int w = h * imageSize.width() / imageSize.height();
+    return QSize(512, 512);
+}
+
+QSize LightFieldWidget2::minimumSizeHint() const {
+    return sizeHint();
+}
 
 void int2hex(int input,string &s) {
 
@@ -66,36 +84,7 @@ void int2hex(int input,string &s) {
     }
 
 }
-LightFieldWidget::LightFieldWidget(QWidget* parent)
-    : QOpenGLWidget(parent)
-    , focus(0.0f)
-    , aperture(5.0f)
-    , lfRows(0)
-    , lfCols(0)
-    , imageSize(1, 1)
-    , cameraPosition(0.5f, 0.5f)
-    , isClick(false) {
-    // Setup timer
-    timer = std::make_unique<QTimer>(this);
-    timer->start(10);
-    connect(timer.get(), SIGNAL(timeout()), this, SLOT(animate()));
-}
-
-LightFieldWidget::~LightFieldWidget() {
-}
-
-QSize LightFieldWidget::sizeHint() const {
-    //const int h = 512;
-    //const int w = h * imageSize.width() / imageSize.height();
-    return QSize(l_h, l_w);
-}
-
-QSize LightFieldWidget::minimumSizeHint() const {
-    return sizeHint();
-}
-
-
-void LightFieldWidget::initializeGL() {
+void LightFieldWidget2::initializeGL() {
     // Initialize OpenGL functions
     initializeOpenGLFunctions();
 
@@ -103,11 +92,11 @@ void LightFieldWidget::initializeGL() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     // Compile and link shader programs
-    const QString vShaderFile = QString(SHADER_DIRECTORY) + "lightfield.vert";
-    const QString fShaderFile = QString(SHADER_DIRECTORY) + "lightfield.frag";
+    const QString vShaderFile2 =  "/home/jo/LightField/src/shaders/lightfield.vert";
+    const QString fShaderFile2 = "/home/jo/LightField/src/shaders/lightfield.frag";
     shaderProgram = std::make_unique<QOpenGLShaderProgram>(this);
-    shaderProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, vShaderFile);
-    shaderProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, fShaderFile);
+    shaderProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, vShaderFile2);
+    shaderProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, fShaderFile2);
     shaderProgram->link();
 
     if (!shaderProgram->isLinked()) {
@@ -151,11 +140,11 @@ void LightFieldWidget::initializeGL() {
     vao->release();
 }
 
-void LightFieldWidget::resizeGL(int width, int height) {
+void LightFieldWidget2::resizeGL(int width, int height) {
     glViewport(0, 0, width, height);
 }
 
-void LightFieldWidget::paintGL() {
+void LightFieldWidget2::paintGL() {
     // If texture is not loaded, then return.
     if (!lightFieldTexture) return;
 
@@ -186,14 +175,14 @@ void LightFieldWidget::paintGL() {
     lightFieldTexture->release(0);
 }
 
-void LightFieldWidget::mousePressEvent(QMouseEvent* ev) {
+void LightFieldWidget2::mousePressEvent(QMouseEvent* ev) {
     if (ev->button() == Qt::MouseButton::LeftButton) {
         isClick = true;
         prevMouseClick = ev->pos();
     }
 }
 
-void LightFieldWidget::mouseMoveEvent(QMouseEvent* ev) {
+void LightFieldWidget2::mouseMoveEvent(QMouseEvent* ev) {
     if (ev->buttons() & Qt::MouseButton::LeftButton) {
         if (isClick) {
             const double size = (double)std::min(width(), height());
@@ -206,24 +195,28 @@ void LightFieldWidget::mouseMoveEvent(QMouseEvent* ev) {
     }
 }
 
-void LightFieldWidget::mouseReleaseEvent(QMouseEvent* ev) {
+void LightFieldWidget2::mouseReleaseEvent(QMouseEvent* ev) {
     if (ev->button() == Qt::MouseButton::LeftButton) {
         isClick = false;
     }
 }
-void LightFieldWidget::save_image(){
+void LightFieldWidget2::save_image(){
+    //size_t nPixels = l_w*l_h*3;
+    //GLfloat* pixels = new GLfloat[nPixels];
+    //glReadPixels(0.0, 0.0, l_w, l_h,GL_RGB, GL_FLOAT, pixels);
 
-    int w = width();
-    int h = height();//
+    int w = width()*2+15;
+    int h = height()+9;//
     int bytesPerPixel = 3;
     int strideSize = (w * (4 - bytesPerPixel)) % 4;
     int bytesPerLine = w * 3 + strideSize;
     int size = bytesPerLine * h;
     GLubyte * pixel = new GLubyte[size];
-    glReadPixels(9, 9, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixel);
 
+    glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixel);
     QImage image(pixel, w, h, bytesPerLine, QImage::Format::Format_RGB888);
     QImage img=image.mirrored(false,true);
+
     bool result = img.save("/home/jo/LightField/src/viewer/save/image.png", "PNG");
     cout<< "Save_image"<<endl;
 
@@ -251,125 +244,60 @@ void LightFieldWidget::save_image(){
                          else                       // To the next pixel
            */
 }
-void LightFieldWidget::save_label(){
-    int w = width();
-    int h = height();//
-    int bytesPerPixel = 3;
-    int strideSize = (w * (4 - bytesPerPixel)) % 4;
-    int bytesPerLine = w * 3 + strideSize;
-    int size = bytesPerLine * h;
-    GLubyte * pixel = new GLubyte[size];
-    glReadPixels(9+w+6, 9, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixel);
-    for(int i=0;i<size;i+=3){//not flip first 2d  ->1d
-        //printf("R%u   G%u    B%u\n",pixel[i+0],pixel[i+1],pixel[i+2]);
-        int aa=0,ss=0,dd=0;
-        //a=((pixel[i+1])*1000)+pixel[i+2];
-        aa=pixel[i+0];
-        ss=pixel[i+1];
-        dd=pixel[i+2];
-        string r,g,b,k;
-        int2hex(aa,r);
-        int2hex(ss,g);
-        int2hex(dd,b);
-        k=r+g+b;
-        p=label_map_s.find(k);
-        if(p==label_map_s.end()) ll[i/3]=0;
-        else{
-            ll[i/3]=label_map_s[k];
+void LightFieldWidget2::save_label(){
+    /*fstream dataFile;
+    string buffer;
+
+
+    cout<<"helo"<<endl;
+        dataFile.open("/home/jo/LightField/src/viewer/save/label/asd", ios::out);
+        int asd=0;
+        for(int i=0; i<label_idx;i++){
+
+            dataFile<< label_key[i]<<endl;
+            asd++;
+        }
+        cout<<asd<<endl;
+        dataFile.close();
+
+        cout<<"Save Label";*/
+    //
+
+    /*unsigned char* imageData = NULL;
+    imageData = (unsigned char *)malloc((int)(width * height * (3)));
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, imageData);
+
+    if (imageData != NULL)
+    {
+        cv::Mat test_mat(cv::Size(width, height), CV_8UC3, imageData);
+
+        if (!test_mat.empty())
+        {
+            cv::imshow("test", test_mat);
+            cv::waitKey(1);
         }
 
+        free(imageData);
+        imageData = NULL;
     }
-    QImage image(pixel, w, h, bytesPerLine, QImage::Format::Format_RGB888);
-    QImage img=image.mirrored(false,true);
-    bool result = img.save("/home/jo/LightField/src/viewer/save/image2.png", "PNG");
-
-    std::ofstream ofile("label2.txt");
-    std::string str = "Write test";
-    if (ofile.is_open()) {
-        for(int i=0;i<label_idx;i++)
-        ofile << label_key[i]<<endl;
-        ofile.close(); }
+*/
+std::ofstream ofile("label.txt");
+std::string str = "Write test";
+if (ofile.is_open()) {
+    for(int i=0;i<label_idx;i++)
+    ofile << label_key[i]<<endl;
+    ofile.close(); }
 
 
-
-
-std::ofstream sofile("label.txt");
-if (sofile.is_open()) {
-    int txt_out[l_h][l_w]={0,};
-    for(int i=0;i<l_w*l_w;i++)
-        //ofile << ll[i]<<endl;
-        txt_out[(i/l_h)][i%l_w]=ll[i];
-    for(int i=511; i>=0;i--)
-        for(int j=0;j<l_w;j++)
-            sofile << txt_out[i][j]<<endl;
-    sofile.close(); }
-
-
-cout<< "Save_Label"<<endl;
-}
-
-void LightFieldWidget::setLightField(const std::vector<ImageInfo>& viewInfos,
-                                     int rows, int cols) {
-    makeCurrent();
-    this->lfRows = rows;
-    this->lfCols = cols;
-
-    // Check image size of each view
-    QImage temp(viewInfos[0].path());
-    if (temp.isNull()) {
-        qDebug("[ERROR] failed to load image: %s",
-               viewInfos[0].path().toStdString().c_str());
-        std::abort();
-    }
-    const int imageW = temp.width();
-    const int imageH = temp.height();
-    this->imageSize = QSize(imageW, imageH);
-    updateGeometry();
-
-    // Create large tiled image
-    std::vector<uint8_t> imageData((rows * cols) * imageH * imageW * 3);
-    for (int k = 0; k < viewInfos.size(); k++) {
-        QImage img(viewInfos[k].path());
-        if (img.width() != imageW || img.height() != imageH) {
-            qDebug("[ERROR] image size invalid!!");
-            std::abort();
-        }
-
-        for (int y = 0; y < imageH; y++) {
-            for (int x = 0; x < imageW; x++) {
-                const QColor color = img.pixelColor(x, y); // 여기서 픽셀값 가져가는구만유
-                imageData[((k * imageH + y) * imageW + x) * 3 + 0] = (uint8_t)color.red();
-                imageData[((k * imageH + y) * imageW + x) * 3 + 1] = (uint8_t)color.green();
-                imageData[((k * imageH + y) * imageW + x) * 3 + 2] = (uint8_t)color.blue();
-            }
-        }
-    }
-
-    lightFieldTexture = std::make_unique<QOpenGLTexture>(QOpenGLTexture::Target3D);
-    lightFieldTexture->setAutoMipMapGenerationEnabled(false);
-    lightFieldTexture->setMinMagFilters(QOpenGLTexture::Filter::Linear, QOpenGLTexture::Filter::Linear);
-    lightFieldTexture->setWrapMode(QOpenGLTexture::CoordinateDirection::DirectionS,
-                                   QOpenGLTexture::WrapMode::ClampToEdge);
-    lightFieldTexture->setWrapMode(QOpenGLTexture::CoordinateDirection::DirectionT,
-                                   QOpenGLTexture::WrapMode::ClampToEdge);
-    lightFieldTexture->setWrapMode(QOpenGLTexture::CoordinateDirection::DirectionR,
-                                   QOpenGLTexture::WrapMode::ClampToEdge);
-    lightFieldTexture->setFormat(QOpenGLTexture::TextureFormat::RGB8_UNorm);
-    lightFieldTexture->setSize(imageW, imageH, rows * cols);
-    lightFieldTexture->allocateStorage(QOpenGLTexture::PixelFormat::RGB,
-                                       QOpenGLTexture::PixelType::UInt8);
-    lightFieldTexture->setData(0, 0, QOpenGLTexture::PixelFormat::RGB,
-                               QOpenGLTexture::PixelType::UInt8, imageData.data());
-
-    qDebug("[INFO] light field texture is binded!!");
 
 }
 
-void LightFieldWidget::setLabel(const std::vector<ImageInfo>& viewInfos, int rows, int cols) {
+
+void LightFieldWidget2::setLabel(const std::vector<ImageInfo>& viewInfos, int rows, int cols) {
     makeCurrent();
     this->lfRows = rows;
     this->lfCols = cols;
-    LightFieldWidget::test();
+    LightFieldWidget2::test();
 
     // Check image size of each view
     QImage temp(viewInfos[0].path());
@@ -391,7 +319,7 @@ void LightFieldWidget::setLabel(const std::vector<ImageInfo>& viewInfos, int row
     //cout<<label_key[3];
     qDebug("Before%d",cols);
 
-    std::vector<uint8_t> imageData((rows * cols) * imageH * imageW * 3);
+    std::vector<uint16_t> imageData((rows * cols) * imageH * imageW );
 
 
     qDebug("After");
@@ -404,37 +332,16 @@ void LightFieldWidget::setLabel(const std::vector<ImageInfo>& viewInfos, int row
         }
         //qDebug("col%d row%d",viewInfos[k].col(),viewInfos[k].row());
 
-        int cnt=0;
+
         for (int y = 0; y < imageH; y++) {
             for (int x = 0; x < imageW; x++) {
 
-                //max_label=max(max_label,label[8-viewInfos[k].row()][8-viewInfos[k].col()][y][x]);
-
-                //imageData[((k * imageH + y) * imageW + x) * 3 + 0]= col_val[label[8-viewInfos[k].row()][8-viewInfos[k].col()][y][x]].r;
-                //imageData[((k * imageH + y) * imageW + x) * 3 + 1]=  col_val[label[8-viewInfos[k].row()][8-viewInfos[k].col()][y][x]].g;
-                //imageData[((k * imageH + y) * imageW + x) * 3 + 2]=  col_val[label[8-viewInfos[k].row()][8-viewInfos[k].col()][y][x]].b;
-                string hx_r,hx_g,hx_b,xx;
-                               xx=label_key[label[8-viewInfos[k].row()][viewInfos[k].col()][y][x]];
-                               hx_r+=xx[0];
-                               hx_r+=xx[1];
-                               hx_g+=xx[2];
-                               hx_g+=xx[3];
-                               hx_b+=xx[4];
-                               hx_b+=xx[5];
-
-                               imageData[((k * imageH + y) * imageW + x) * 3 + 0]= (uint8_t)strtol(hx_r.c_str(), NULL, 16);
-                               imageData[((k * imageH + y) * imageW + x) * 3 + 1]= (uint8_t)strtol(hx_g.c_str(), NULL, 16);
-                               imageData[((k * imageH + y) * imageW + x) * 3 + 2]= (uint8_t)strtol(hx_b.c_str(), NULL, 16);
+                imageData[((k * imageH + y) * imageW + x) * 3 + 0]= (uint16_t)label[8-viewInfos[k].row()][viewInfos[k].col()][y][x];
 
             }
         }
     }
-    //const QString vShaderFile = QString(SHADER_DIRECTORY) + "lightfield.vert";
-    //const QString fShaderFile = QString(SHADER_DIRECTORY) + "lightfield3.frag";
-    //shaderProgram = std::make_unique<QOpenGLShaderProgram>(this);
-    //shaderProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, vShaderFile);
-    //shaderProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, fShaderFile);
-    //shaderProgram->link();
+
     lightFieldTexture = std::make_unique<QOpenGLTexture>(QOpenGLTexture::Target3D);
     lightFieldTexture->setAutoMipMapGenerationEnabled(false);
     lightFieldTexture->setMinMagFilters(QOpenGLTexture::Filter::Nearest, QOpenGLTexture::Filter::Nearest);
@@ -445,16 +352,18 @@ void LightFieldWidget::setLabel(const std::vector<ImageInfo>& viewInfos, int row
                                    QOpenGLTexture::WrapMode::ClampToEdge);
     lightFieldTexture->setWrapMode(QOpenGLTexture::CoordinateDirection::DirectionR,
                                    QOpenGLTexture::WrapMode::ClampToEdge);
-    lightFieldTexture->setFormat(QOpenGLTexture::TextureFormat::RGB8_UNorm);//왜 Unormalization 해야되냐 ㅅㅂ ㅅㅄㅄㅄㅄㅂ
+    lightFieldTexture->setFormat(QOpenGLTexture::TextureFormat::R16U);
+
     lightFieldTexture->setSize(imageW, imageH, rows * cols);
-    lightFieldTexture->allocateStorage(QOpenGLTexture::PixelFormat::RGB,
-                                       QOpenGLTexture::PixelType::UInt8);
-    lightFieldTexture->setData(0, 0, QOpenGLTexture::PixelFormat::RGB,
-                               QOpenGLTexture::PixelType::UInt8, imageData.data());
+    lightFieldTexture->allocateStorage(QOpenGLTexture::PixelFormat::Red_Integer,
+                                       QOpenGLTexture::PixelType::UInt16);
+    lightFieldTexture->setData(0, 0, QOpenGLTexture::PixelFormat::Red_Integer,
+                               QOpenGLTexture::PixelType::UInt16, imageData.data());
+
 
     qDebug("[INFO] light field texture is binded!!");
 }
-void LightFieldWidget::test(){
+void LightFieldWidget2::test(){
     DIR            *dir_info;
     struct dirent  *dir_entry;
     string D_P = "/home/jo/LightField/src/viewer/stillLife/real_label/";
@@ -468,7 +377,12 @@ void LightFieldWidget::test(){
             // file read
             fstream fs;
             string str_buf;
+            //cout << "ㅡ" << endl;
+
+            //cout << dir_entry->d_name << endl;
+            //cout <<dir_entry->d_name[0] << " " << dir_entry->d_name[2] << endl;
             fs.open(D_P + dir_entry->d_name, ios::in);
+
             char str1= dir_entry->d_name[0]; // can connect 0~9 u_v idex
             char str2 = dir_entry->d_name[2];
 
@@ -484,7 +398,7 @@ void LightFieldWidget::test(){
                 getline(fs, str_buf);
 
                 label[u_][v_][indx/l_w][indx%l_w] = atoi(str_buf.c_str());
-                //cout<<label[u_][v_][indx/l_w][indx%l_w]<<endl;
+
                  //cout<< indx/l_w<<" "<<indx%l_w<<endl;
                 //qDebug("\n CLEAR LOAD IN  %d",label[u_][v_][indx/l_w][indx%l_w]);
                 indx++;	//indx must w=h
@@ -508,36 +422,32 @@ void LightFieldWidget::test(){
                 hex_b += hex[rand() % 15];
 
             }// index -> hex color
-
+            //cout << "----int to hex------" << endl;
+            //cout << hex_r << " " << hex_g << " " << hex_b << endl;
             label_key[cnt] = hex_r + hex_g + hex_b;
-             label_map_s.insert({ label_key[cnt],cnt });
+            //cout<<label_key[cnt]<<endl;
+            label_map.insert({ label_key[cnt],cnt });
 
         }//gen hex
        qDebug("\n CLEAR LOAD IN  %s",D_P.c_str());
-
-       //for(int i=0; i<2000;i++){
-       //    col_val[i].g=i/256;
-       //    col_val[i].b=i%256;
-       //    col_val[i].v=(col_val[i].g*1000)+col_val[i].b;
-       //    label_map.insert({col_val[i].v,i });
-       //}
 }
-void LightFieldWidget::setFocusPoint(float value) {
+void LightFieldWidget2::setFocusPoint(float value) {
     focus = value;
 }
 
-void LightFieldWidget::setApertureSize(float value) {
+void LightFieldWidget2::setApertureSize(float value) {
     aperture = value;
 }
 
-float LightFieldWidget::focusPoint() const {
+float LightFieldWidget2::focusPoint() const {
     return focus;
 }
 
-float LightFieldWidget::apertureSize() const {
+float LightFieldWidget2::apertureSize() const {
     return aperture;
 }
 
-void LightFieldWidget::animate() {
+void LightFieldWidget2::animate() {
     update();
 }
+
